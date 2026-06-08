@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Data and Outputs (Gigabytes of data!)
+data/
+outputs/
+DATACREATION/projection_slices_tiff/
+DATACREATION/*slices_tiff/
+DATACREATION/*_projections/
+*.zip
+*.tiff
+*.tif
+*.npz
+
+# IDEs
+.vscode/
+.idea/

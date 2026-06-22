@@ -40,4 +40,4 @@ Instead of post-processing images after the classical math has ruined them, we u
    - It saves the final trained AI model to `outputs/dual_domain_all_datasets/`.
 
 ## Notes for the Conference Paper
-When porting this code to the supercomputer, ensure you implement the `DifferentiableBackprojection` using an actual CUDA kernel (e.g., via the ASTRA Toolbox PyTorch wrapper or `torch-radon`). In this codebase, it is represented as a skeletal placeholder to allow for structural testing before final deployment.
+The architecture in `train_dual_domain.py` is fully implemented and **automatically** integrates the differentiable CUDA kernel (`torch-radon`) if it is installed in your Conda environment. Make sure to follow the *Phase 0 Supercomputer Setup* instructions in `PROJECT_MANUAL.md` so PyTorch can pass mathematical gradients seamlessly between the Sensor Domain and the Image Domain. Once the library is installed, the code handles the rest to give you State-of-the-Art results for your paper!

@@ -34,7 +34,7 @@ Instead of relying solely on a post-processing U-Net (which tries to fix noise *
 
 > [!TIP]
 > **Conference Paper Action Item (Supercomputer):** 
-> The architecture in `train_dual_domain.py` is fully implemented except for the `DifferentiableBackprojection` layer, which is currently a placeholder block. When you move to the supercomputer, you will need to replace that placeholder with a compiled CUDA kernel (using libraries like `torch-radon` or `astra.pytorch`) so PyTorch can pass mathematical gradients seamlessly between the Sensor Domain and the Image Domain. Once compiled, this will give you State-of-the-Art results for your paper!
+> The architecture in `train_dual_domain.py` is fully implemented and **automatically** integrates the differentiable CUDA kernel (`torch-radon`) if you install it in your Conda environment. Make sure to follow the *Phase 0 Supercomputer Setup* instructions so PyTorch can pass mathematical gradients seamlessly between the Sensor Domain and the Image Domain. Once the library is installed, the code handles the rest to give you State-of-the-Art results for your paper!
 
 ---
 

@@ -36,13 +36,11 @@ class SliceRecord:
 
 def load_slice_records(pairs_root: str | Path) -> list[SliceRecord]:
     pairs_root = Path(pairs_root)
-    pair_dirs = sorted(path for path in pairs_root.iterdir() if path.is_dir())
+    slices_paths = list(pairs_root.rglob("axial_slices.npz"))
     records: list[SliceRecord] = []
 
-    for pair_dir in pair_dirs:
-        slices_path = pair_dir / "axial_slices.npz"
-        if not slices_path.exists():
-            continue
+    for slices_path in slices_paths:
+        pair_dir = slices_path.parent
         payload = np.load(slices_path)
         input_slices = payload["input_slices"].astype(np.float32)
         target_slices = payload["target_slices"].astype(np.float32)

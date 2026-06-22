@@ -9,6 +9,9 @@ Usage:
     # U-Net enhancement (post-processing: degraded FBP -> enhanced)
     python scripts/run_pipeline.py unet --sample sample_1 --epochs 50
     
+    # Dual-Domain (SOTA: sinogram -> FBP -> image refinement)
+    python scripts/run_pipeline.py dual-domain --sample sample_1 --epochs 50
+    
     # Classical FDK reconstruction only
     python scripts/run_pipeline.py classical --sample sample_1
 """
@@ -172,67 +175,91 @@ def run_sinogram_pipeline(sample_name: str, epochs: int = 50):
 
 def run_unet_pipeline(sample_name: str, epochs: int = 50):
     """Run U-Net enhancement pipeline."""
-    paths = get_sample_paths(sample_name)
-    config = get_sample_config(sample_name)
+    data_dir = REPO_ROOT / "data"
+    training_pairs_root = REPO_ROOT / "outputs" / "training_pairs"
     
-    print(f"\n{'='*60}")
-    print(f"U-Net Enhancement Pipeline for {sample_name}")
-    print(f"{'='*60}")
-    
-    # Step 1: Classical reference (used for pair generation)
-    result = run_classical(sample_name)
-    if result != 0:
-        return result
+    if sample_name == "all":
+        print(f"\n{'='*60}")
+        print("U-Net Enhancement Pipeline (MULTI-DATASET AGGREGATION)")
+        print(f"{'='*60}")
+        
+        # Discover all datasets
+        sample_dirs = [d for d in data_dir.iterdir() if d.is_dir()]
+        print(f"Discovered {len(sample_dirs)} physical datasets.")
+        
+        for s_dir in sample_dirs:
+            s_name = s_dir.name
+            print(f"\n--- Processing Dataset: {s_name} ---")
+            run_classical(s_name)
+            
+            config = get_sample_config(s_name)
+            out_dir = training_pairs_root / s_name
+            out_dir.mkdir(parents=True, exist_ok=True)
+            run_command(
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "unet_enhancement" / "01_build_training_pairs.py"),
+                    "--sample-dir", str(s_dir),
+                    "--output-dir", str(out_dir),
+                    "--downsample-factor", str(config["downsample_factor"]),
+                ],
+                f"Building U-Net training pairs for {s_name}",
+            )
+        
+        pairs_to_train = training_pairs_root
+        checkpoint_dir = REPO_ROOT / "outputs" / "unet_all_datasets"
+        
+    else:
+        paths = get_sample_paths(sample_name)
+        config = get_sample_config(sample_name)
+        
+        print(f"\n{'='*60}")
+        print(f"U-Net Enhancement Pipeline for {sample_name}")
+        print(f"{'='*60}")
+        
+        result = run_classical(sample_name)
+        if result != 0:
+            return result
 
-    print("\n[Step 2/4] Building training pairs (degraded vs reference)...")
-    paths["unet_training_pairs"].mkdir(parents=True, exist_ok=True)
-    result = run_command(
-        [
-            sys.executable,
-            str(SCRIPTS_DIR / "unet_enhancement" / "01_build_training_pairs.py"),
-            "--sample-dir",
-            str(paths["sample_dir"]),
-            "--downsample-factor",
-            str(config["downsample_factor"]),
-            "--output-dir",
-            str(paths["unet_training_pairs"]),
-        ],
-        "Building U-Net training pairs",
-    )
-    if result != 0:
-        return result
+        print("\n[Step 2/4] Building training pairs (degraded vs reference)...")
+        paths["unet_training_pairs"].mkdir(parents=True, exist_ok=True)
+        result = run_command(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "unet_enhancement" / "01_build_training_pairs.py"),
+                "--sample-dir", str(paths["sample_dir"]),
+                "--output-dir", str(paths["unet_training_pairs"]),
+                "--downsample-factor", str(config["downsample_factor"]),
+            ],
+            "Building U-Net training pairs",
+        )
+        if result != 0:
+            return result
+            
+        pairs_to_train = paths["unet_training_pairs"]
+        checkpoint_dir = paths["unet_checkpoint"].parent
 
     print("\n[Step 3/4] Training U-Net...")
-    paths["unet_checkpoint"].parent.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     result = run_command(
         [
             sys.executable,
             str(SCRIPTS_DIR / "unet_enhancement" / "02_train_model.py"),
-            "--pairs-root",
-            str(paths["unet_training_pairs"]),
-            "--output-dir",
-            str(paths["unet_checkpoint"].parent),
-            "--epochs",
-            str(epochs),
-            "--batch-size",
-            "8",
-            "--learning-rate",
-            "1e-3",
+            "--pairs-root", str(pairs_to_train),
+            "--output-dir", str(checkpoint_dir),
+            "--epochs", str(epochs),
+            "--batch-size", "8",
+            "--learning-rate", "1e-3",
         ],
         "Training U-Net enhancement model",
     )
     if result != 0:
         return result
 
-    print("\n[Step 4/4] Preparing inference output directory...")
-    paths["unet_inference"].mkdir(parents=True, exist_ok=True)
-    
     print(f"\n{'='*60}")
     print("U-Net enhancement pipeline complete (training stage).")
-    print(f"Training pairs: {paths['unet_training_pairs']}")
-    print(f"Model checkpoint: {paths['unet_checkpoint']}")
-    print(f"Inference output dir: {paths['unet_inference']}")
-    print("Note: inference script is not yet implemented in this repository.")
+    print(f"Training pairs source: {pairs_to_train}")
+    print(f"Model checkpoints saved to: {checkpoint_dir}")
     print(f"{'='*60}")
     return 0
 
@@ -299,7 +326,7 @@ def run_enhance_pipeline(sample_name: str, epochs: int = 50):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="CT Reconstruction Pipeline",
+        description="CT Reconstruction Master Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -360,6 +387,15 @@ Examples:
             skip_if_exists=False,
             no_downsample=args.no_downsample,
             downsample_factor_override=args.downsample_factor
+        )
+    elif args.command == "dual-domain":
+        print("\n" + "="*60)
+        print("INITIALIZING STATE-OF-THE-ART DUAL-DOMAIN ARCHITECTURE")
+        print("Note: End-to-end training requires matched sinogram-image datasets.")
+        print("="*60)
+        return run_command(
+            [sys.executable, str(SRC_DIR / "ct_recon" / "train_dual_domain.py")],
+            "Loading Dual-Domain Architecture"
         )
     else:
         parser.print_help()

@@ -5,9 +5,11 @@ from pathlib import Path
 from usaf_projection_script import run_local_projection_pipeline
 
 def generate_datasets():
-    # Central output data directory
-    output_base_dir = "/home/kitretsu/Desktop/SUMMER/data"
-    os.makedirs(output_base_dir, exist_ok=True)
+    # Central output data directory (Dynamic for portability)
+    script_dir = Path(__file__).resolve().parent
+    output_base_dir = script_dir.parent / "data"
+    output_base_dir.mkdir(parents=True, exist_ok=True)
+    output_base_dir_str = str(output_base_dir)
     
     # Locate all STLs
     stl_files = glob.glob("STL/*.stl")
@@ -56,7 +58,7 @@ def generate_datasets():
         
         for var in variations:
             dataset_name = f"{stl_name}_{var['suffix']}"
-            dataset_out_dir = os.path.join(output_base_dir, dataset_name)
+            dataset_out_dir = os.path.join(output_base_dir_str, dataset_name)
             zip_out_name = f"{dataset_name}.zip"
             
             print(f"  -> Generating variation: {var['suffix']}")

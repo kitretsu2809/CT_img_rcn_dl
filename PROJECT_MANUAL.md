@@ -104,12 +104,38 @@ python scripts/run_pipeline.py unet --sample all --epochs 50 --batch-size 8
 4. It aggregates all these slices into one massive, randomized training pool.
 5. It initializes the PyTorch U-Net and trains for 50 epochs on your GPU, saving the ultra-robust AI model to `outputs/`.
 
-### Phase 3: Evaluate Alternative Modes
+### Phase 3: Using Real Physical CT Scans (No Simulation)
+If you scan a real physical object on a hardware CT machine, you can feed that real data directly into this AI pipeline. 
+
+You simply need to format your real scan to mimic our simulation structure:
+1. Create a new folder for your scan: `SUMMER/data/my_real_scan/`
+2. Place all your real 16-bit TIFF projection images into: `SUMMER/data/my_real_scan/projections/`
+3. Create a `settings.cto` text file in `SUMMER/data/my_real_scan/` that contains your physical scanner's exact hardware geometry (e.g., Source-to-Object Distance, Detector Pitch, etc.).
+
+Once that folder exists, the `run_pipeline.py unet --sample all` command will automatically discover it, perform the classical math on it, and train the AI using your real physical data alongside the synthetic data!
+
+### Phase 4: Direct Reconstruction & Dual-Domain (For Conference Paper)
+*This is the cutting-edge section of the repository built specifically for your conference paper research.*
+
+Instead of relying solely on the Classical → U-Net two-step post-processing pipeline, we have implemented an architecture that learns directly from the raw Sensor Domain.
+
+**1. Sinogram-to-Image (Direct Translation)**
+- **Where to find it:** `DeepLearningCT/scripts/sinogram_reconstruction/02_train_model.py`
+- **What it does:** This model uses a massive PyTorch encoder-decoder (`SinogramToImageDecoder`). It takes the 2D TIFF projections directly as a tensor, funnels it through a deep neural network, and bypasses classical math entirely to output a reconstructed 3D slice.
+
+**2. The State-of-the-Art Dual-Domain Network**
+- **Where to find it:** `DeepLearningCT/src/ct_recon/train_dual_domain.py`
+- **What it does:** This combines the best of both worlds. It processes data systematically across both the sensor and image domains.
+  - *Step 1:* Clean the raw TIFF projections using a Sinogram U-Net.
+  - *Step 2:* Use a `DifferentiableBackprojection` bridge to transform the cleaned TIFFs into a 3D image.
+  - *Step 3:* Use an Image U-Net to refine the final output.
+
+> [!TIP]
+> **Conference Paper Action Item (Supercomputer):** 
+> The architecture in `train_dual_domain.py` is fully implemented except for the `DifferentiableBackprojection` layer, which is currently a placeholder block. When you move to the supercomputer, you will need to replace that placeholder with a compiled CUDA kernel (using libraries like `torch-radon` or `astra.pytorch`) so PyTorch can pass mathematical gradients seamlessly between the Sensor Domain and the Image Domain. Once compiled, this will give you State-of-the-Art results for your paper!
+
+### Phase 5: Evaluate Alternative Modes
 If you want to just run classical physics math without AI:
 ```bash
 python scripts/run_pipeline.py classical --sample FINAL30_standard
-```
-If you want to initialize the bleeding-edge Dual-Domain architecture framework:
-```bash
-python scripts/run_pipeline.py dual-domain --sample FINAL30_standard
 ```

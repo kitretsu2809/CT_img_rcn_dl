@@ -14,7 +14,7 @@ if str(SRC_DIR) not in sys.path:
 
 from ct_recon.paths import OUTPUTS_DIR, resolve_repo_path
 from ct_recon.sparse_ct_reconstruction import _import_torch_or_exit, load_sparse_dataset, psnr_np, save_history
-
+from ct_recon.train_dual_domain import DualDomainNet
 
 def split_indices(count: int, val_fraction: float, seed: int) -> tuple[list[int], list[int]]:
     indices = list(range(count))
@@ -26,15 +26,14 @@ def split_indices(count: int, val_fraction: float, seed: int) -> tuple[list[int]
     valid_indices = [idx for idx in indices if idx in val_indices]
     return train_indices, valid_indices
 
-
 def main():
     torch, nn, _ = _import_torch_or_exit()
     from torch.utils.data import DataLoader, Dataset
-    from ct_recon.sparse_ct_reconstruction import SparseCTReconstructionModel
 
-    class SparseSliceDataset(Dataset):
+    class DualDomainDataset(Dataset):
         def __init__(self, input_sinograms, target_sinograms, target_images, indices):
             self.input_sinograms = input_sinograms
+            self.target_sinograms = target_sinograms
             self.target_images = target_images
             self.indices = list(indices)
 
@@ -43,15 +42,16 @@ def main():
 
         def __getitem__(self, index):
             sample_idx = self.indices[index]
-            sparse = torch.from_numpy(self.input_sinograms[sample_idx][None, :, :])
+            noisy_sinogram = torch.from_numpy(self.input_sinograms[sample_idx][None, :, :])
+            target_sinogram = torch.from_numpy(self.target_sinograms[sample_idx][None, :, :])
             target_image = torch.from_numpy(self.target_images[sample_idx][None, :, :])
-            return sparse, target_image
+            return noisy_sinogram, target_sinogram, target_image
 
-    parser = argparse.ArgumentParser(description="Train a direct sparse sinogram to image reconstructor.")
+    parser = argparse.ArgumentParser(description="Train the SOTA Dual-Domain Reconstructor.")
     parser.add_argument("--dataset-path", default=str(OUTPUTS_DIR / "sparse_sinogram_dataset.npz"))
-    parser.add_argument("--output-dir", default=str(OUTPUTS_DIR / "sparse_recon_training"))
+    parser.add_argument("--output-dir", default=str(OUTPUTS_DIR / "dual_domain_training"))
     parser.add_argument("--epochs", type=int, default=20)
-    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--batch-size", type=int, default=2) # Dual-domain uses more memory
     parser.add_argument("--learning-rate", type=float, default=1e-3)
     parser.add_argument("--val-fraction", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=0)
@@ -61,22 +61,17 @@ def main():
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    input_sinograms, _target_sinograms, target_images, metadata = load_sparse_dataset(resolve_repo_path(args.dataset_path))
+    input_sinograms, target_sinograms, target_images, metadata = load_sparse_dataset(resolve_repo_path(args.dataset_path))
     train_indices, val_indices = split_indices(len(input_sinograms), args.val_fraction, args.seed)
 
-    train_dataset = SparseSliceDataset(input_sinograms, _target_sinograms, target_images, train_indices)
-    val_dataset = SparseSliceDataset(input_sinograms, _target_sinograms, target_images, val_indices)
+    train_dataset = DualDomainDataset(input_sinograms, target_sinograms, target_images, train_indices)
+    val_dataset = DualDomainDataset(input_sinograms, target_sinograms, target_images, val_indices)
 
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = SparseCTReconstructionModel(
-        sparse_angle_count=metadata.sparse_angle_count,
-        dense_angle_count=metadata.dense_angle_count,
-        detector_count=metadata.detector_count,
-        image_size=metadata.image_size,
-    ).to(device)
+    model = DualDomainNet(image_size=metadata.image_size).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     l1_loss = nn.L1Loss()
 
@@ -103,31 +98,40 @@ def main():
         model.train()
         train_losses = []
 
-        for sparse, target_image in train_loader:
-            sparse = sparse.to(device)
+        for noisy_sino, target_sino, target_image in train_loader:
+            noisy_sino = noisy_sino.to(device)
+            target_sino = target_sino.to(device)
             target_image = target_image.to(device)
 
-            outputs = model(sparse)
-            loss = l1_loss(outputs["reconstruction"], target_image)
+            final_image, clean_sinogram = model(noisy_sino)
+            
+            loss_sino = l1_loss(clean_sinogram, target_sino)
+            loss_image = l1_loss(final_image, target_image)
+            total_loss = loss_sino + loss_image
 
             optimizer.zero_grad(set_to_none=True)
-            loss.backward()
+            total_loss.backward()
             optimizer.step()
-            train_losses.append(float(loss.item()))
+            train_losses.append(float(total_loss.item()))
 
         model.eval()
         val_losses = []
         val_psnr_scores = []
         with torch.no_grad():
-            for sparse, target_image in val_loader:
-                sparse = sparse.to(device)
+            for noisy_sino, target_sino, target_image in val_loader:
+                noisy_sino = noisy_sino.to(device)
+                target_sino = target_sino.to(device)
                 target_image = target_image.to(device)
 
-                outputs = model(sparse)
-                loss = l1_loss(outputs["reconstruction"], target_image)
-                val_losses.append(float(loss.item()))
+                final_image, clean_sinogram = model(noisy_sino)
+                
+                loss_sino = l1_loss(clean_sinogram, target_sino)
+                loss_image = l1_loss(final_image, target_image)
+                total_loss = loss_sino + loss_image
+                
+                val_losses.append(float(total_loss.item()))
 
-                predictions_np = outputs["reconstruction"].detach().cpu().numpy()
+                predictions_np = final_image.detach().cpu().numpy()
                 targets_np = target_image.detach().cpu().numpy()
                 for pred, target in zip(predictions_np, targets_np):
                     val_psnr_scores.append(psnr_np(np.clip(pred, 0.0, 1.0), target))

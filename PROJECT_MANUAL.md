@@ -66,29 +66,41 @@ Here are the exact commands you need to run to execute the pipeline from start t
 > [!WARNING]
 > Both the Physics Simulation and AI Training require intense GPU computation. Ensure your machine is idle before running these scripts.
 
-### Phase 0: Supercomputer Setup (CUDA Backprojection)
-To pass the learning gradients seamlessly from the Image Domain back into the Sinogram Domain, the network needs a mathematical layer that performs a Differentiable Radon Transform using the GPU (CUDA).
+### Phase 0: Supercomputer Setup (Conda Environment & CUDA Backprojection)
 
-If you are running this on a supercomputer or a high-end local GPU, you must install `torch-radon` (or a similar CUDA backend) into your PyTorch environment.
+Instead of managing multiple virtual environments, we use a single unified `conda` environment to run everything from the physics simulation to the final AI training.
 
-1. Clone and install the `torch-radon` library in your AI virtual environment:
-   ```bash
-   # Make sure your deep learning virtual environment is active!
-   git clone https://github.com/matteo-pedone/Torch-Radon.git
-   cd Torch-Radon
-   python setup.py install
-   ```
-2. **Automatic Integration:** The `train_dual_domain.py` script is already programmed to detect this library! If it is installed, it will automatically activate the real mathematically correct CUDA layer. If it is not installed, it falls back to a dummy tensor (which is only useful for structural testing on a laptop, but will not train correctly).
+Run these exact commands on the supercomputer to set everything up:
+
+```bash
+# 1. Create a clean Conda environment named 'ct_pipeline'
+conda create -n ct_pipeline python=3.10 -y
+conda activate ct_pipeline
+
+# 2. Install PyTorch (with CUDA for the GPU)
+conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia -y
+
+# 3. Install ASTRA Toolbox (for the physics simulator in Phase 1)
+conda install -c astra-toolbox astra-toolbox -y
+
+# 4. Install Torch-Radon (the differentiable CUDA bridge for the AI in Phase 2)
+git clone https://github.com/matteo-pedone/Torch-Radon.git
+cd Torch-Radon
+python setup.py install
+cd ..
+```
+
+**Automatic Integration:** The `train_dual_domain.py` script is programmed to automatically detect `torch-radon`. If installed, it will activate the real mathematically correct CUDA layer for the paper.
 
 ### Phase 1: Generate the Synthetic Data (Physics Simulation)
-*You will use the isolated `venv` inside DATACREATION that has ASTRA correctly installed. This script has been super-charged to scan the `DATACREATION/STL/` folder and generate multiple variations for **every** CAD model it finds.*
+*Ensure your `ct_pipeline` conda environment is active. This script has been super-charged to scan the `DATACREATION/STL/` folder and generate multiple variations for **every** CAD model it finds.*
 
 ```bash
 # 1. Navigate to the Simulator directory
 cd /home/kitretsu/Desktop/SUMMER/DATACREATION
 
-# 2. Run the dataset generation using the local virtual environment
-./venv/bin/python generate_datasets.py
+# 2. Run the dataset generation
+python generate_datasets.py
 ```
 *What happens:* The script will find all 3D objects. For each object, it will generate 4 unique physical simulations:
 - `standard` (Normal noise, 50-micron resolution)

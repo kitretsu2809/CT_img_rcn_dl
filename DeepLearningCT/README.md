@@ -20,8 +20,11 @@ Instead of post-processing images after the classical math has ruined them, we u
 
 ## How to Run
 
-1. **Activate Environment & Install PyTorch:**
-   Ensure you have a Python virtual environment activated containing `torch`, `torchvision`, and `numpy`.
+1. **Activate Conda Environment:**
+   Ensure you have your unified `ct_pipeline` Conda environment activated. (See the main `PROJECT_MANUAL.md` for setup instructions).
+   ```bash
+   conda activate ct_pipeline
+   ```
 
 2. **Train the AI on ALL Generated Datasets (Standard Workflow):**
    *(Make sure you have run the physics simulator first so that the `data/` folder is populated with scans).*

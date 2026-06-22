@@ -84,23 +84,16 @@ cd /home/kitretsu/Desktop/SUMMER/DATACREATION
 
 These will all be saved as separate, fully packaged folders inside `/home/kitretsu/Desktop/SUMMER/data/`.
 
-### Phase 2: Train the Dual-Domain Model
-*Once the `data/` folder is packed with variations, you can train the Dual-Domain Network.*
+### Phase 2: Train the Dual-Domain Model (Standard Workflow)
+*Once the `data/` folder is packed with variations, you can train the Dual-Domain Network on ALL generated datasets simultaneously.*
 
-**Option A: Train on a single specific dataset**
+To train a robust AI, we feed it every single dataset we generated (normal dose, low dose, different CAD models, etc.). You only need to run this one command:
+
 ```bash
 # 1. Navigate to the AI directory
 cd /home/kitretsu/Desktop/SUMMER/DeepLearningCT
 
-# 2. Train on your chosen dataset
-python scripts/run_pipeline.py dual-domain \
-    --sample FINAL30_low_dose_high_noise \
-    --epochs 100
-```
-
-**Option B: Train on ALL generated datasets simultaneously**
-```bash
-cd /home/kitretsu/Desktop/SUMMER/DeepLearningCT
+# 2. Train on ALL datasets at once
 python scripts/run_pipeline.py dual-domain --sample all --epochs 100
 ```
 *What happens:* 

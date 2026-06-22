@@ -23,18 +23,18 @@ Instead of post-processing images after the classical math has ruined them, we u
 1. **Activate Environment & Install PyTorch:**
    Ensure you have a Python virtual environment activated containing `torch`, `torchvision`, and `numpy`.
 
-2. **Train on a Single Specific Dataset (e.g., a low dose test):**
-   ```bash
-   python scripts/run_pipeline.py dual-domain \
-       --sample FINAL30_low_dose_high_noise \
-       --epochs 100
-   ```
-
-3. **Train on ALL Datasets at once:**
-   (Make sure you have run the physics simulator first so that the `data/` folder is populated).
+2. **Train the AI on ALL Generated Datasets (Standard Workflow):**
+   *(Make sure you have run the physics simulator first so that the `data/` folder is populated with scans).*
+   
+   To train a robust AI, we feed it every single dataset we generated (normal dose, low dose, different CAD models, etc.). You only need to run this one command:
    ```bash
    python scripts/run_pipeline.py dual-domain --sample all --epochs 100
    ```
+   **What this does automatically:**
+   - It scans the `data/` directory and finds all your generated scans.
+   - It builds a massive unified dataset from all those scans.
+   - It trains the Dual-Domain network for 100 iterations (epochs).
+   - It saves the final trained AI model to `outputs/dual_domain_all_datasets/`.
 
 ## Notes for the Conference Paper
 When porting this code to the supercomputer, ensure you implement the `DifferentiableBackprojection` using an actual CUDA kernel (e.g., via the ASTRA Toolbox PyTorch wrapper or `torch-radon`). In this codebase, it is represented as a skeletal placeholder to allow for structural testing before final deployment.

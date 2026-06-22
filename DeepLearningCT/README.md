@@ -23,10 +23,17 @@ Instead of post-processing images after the classical math has ruined them, we u
 1. **Activate Environment & Install PyTorch:**
    Ensure you have a Python virtual environment activated containing `torch`, `torchvision`, and `numpy`.
 
-2. **Train the Dual-Domain Network on ALL physical datasets:**
+2. **Train on a Single Specific Dataset (e.g., a low dose test):**
+   ```bash
+   python scripts/run_pipeline.py dual-domain \
+       --sample FINAL30_low_dose_high_noise \
+       --epochs 100
+   ```
+
+3. **Train on ALL Datasets at once:**
    (Make sure you have run the physics simulator first so that the `data/` folder is populated).
    ```bash
-   python scripts/run_pipeline.py dual-domain --sample all
+   python scripts/run_pipeline.py dual-domain --sample all --epochs 100
    ```
 
 ## Notes for the Conference Paper

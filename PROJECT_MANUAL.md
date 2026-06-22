@@ -85,14 +85,23 @@ cd /home/kitretsu/Desktop/SUMMER/DATACREATION
 These will all be saved as separate, fully packaged folders inside `/home/kitretsu/Desktop/SUMMER/data/`.
 
 ### Phase 2: Train the Dual-Domain Model
-*Once the `data/` folder is packed with variations, you can instruct the orchestrator to train the Dual-Domain Network on the **entire massive collection** at once.*
+*Once the `data/` folder is packed with variations, you can train the Dual-Domain Network.*
 
+**Option A: Train on a single specific dataset**
 ```bash
 # 1. Navigate to the AI directory
 cd /home/kitretsu/Desktop/SUMMER/DeepLearningCT
 
-# 2. Start the Dual-Domain training pipeline on ALL generated datasets
-python scripts/run_pipeline.py dual-domain --sample all --epochs 50
+# 2. Train on your chosen dataset
+python scripts/run_pipeline.py dual-domain \
+    --sample FINAL30_low_dose_high_noise \
+    --epochs 100
+```
+
+**Option B: Train on ALL generated datasets simultaneously**
+```bash
+cd /home/kitretsu/Desktop/SUMMER/DeepLearningCT
+python scripts/run_pipeline.py dual-domain --sample all --epochs 100
 ```
 *What happens:* 
 1. The script auto-discovers every single physical variation generated in `../data/`.

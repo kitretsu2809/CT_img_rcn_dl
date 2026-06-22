@@ -56,22 +56,39 @@ class SinogramNet(nn.Module):
 
 class DifferentiableBackprojection(nn.Module):
     """
-    Placeholder for a differentiable Radon transform (FBP).
-    In SOTA implementations (e.g., DuDoNet, PD-Net), this is a custom CUDA layer 
-    that mathematically projects the 2D sinogram into a 2D image grid, allowing 
+    Differentiable Radon transform (FBP).
+    When running on the supercomputer with CUDA, this uses `torch_radon` to 
+    mathematically project the 2D sinogram into a 2D image grid, allowing 
     gradients to flow backwards from the Image Domain to the Sinogram Domain.
     """
-    def __init__(self, image_size=512):
+    def __init__(self, image_size=512, angles=360):
         super().__init__()
         self.image_size = image_size
-        # For a completely learned AUTOMAP-style approach, this could be an FC layer:
-        # self.learned_transform = nn.Linear(num_angles * num_detectors, image_size * image_size)
+        self.angles = angles
+        self.radon = None
+        
+        try:
+            import torch_radon
+            # Initialize the physical scanner geometry (adjust these to match settings.cto!)
+            # Assuming parallel beam for simplicity, but torch_radon supports fan/cone beam.
+            angles_rad = np.linspace(0, np.pi, angles, endpoint=False)
+            self.radon = torch_radon.Radon(image_size, angles_rad)
+            print("Successfully loaded torch-radon CUDA backend for Differentiable Backprojection.")
+        except ImportError:
+            print("WARNING: torch-radon not found. Using dummy placeholder backprojection.")
 
     def forward(self, sinogram):
-        # Pseudo-mapping: In reality, use torch-radon or astra.pytorch
         batch_size = sinogram.shape[0]
-        # Returning a dummy image tensor of correct shape for demonstration
-        return torch.zeros((batch_size, 1, self.image_size, self.image_size), device=sinogram.device)
+        
+        if self.radon is not None:
+            # The actual mathematically correct, differentiable conversion
+            # Filters the sinogram and performs backprojection
+            filtered_sinogram = self.radon.filter_sinogram(sinogram)
+            reconstructed_image = self.radon.backprojection(filtered_sinogram)
+            return reconstructed_image
+        else:
+            # Dummy placeholder for local testing without CUDA
+            return torch.zeros((batch_size, 1, self.image_size, self.image_size), device=sinogram.device)
 
 class ImageNet(nn.Module):
     """

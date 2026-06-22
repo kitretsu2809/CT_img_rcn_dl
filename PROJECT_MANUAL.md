@@ -61,10 +61,24 @@ SUMMER/
 
 ## 4. Execution Manual: How to Run the Pipeline
 
-Here are the exact commands you need to run to execute the pipeline from start to finish on your local machine.
+Here are the exact commands you need to run to execute the pipeline from start to finish.
 
 > [!WARNING]
 > Both the Physics Simulation and AI Training require intense GPU computation. Ensure your machine is idle before running these scripts.
+
+### Phase 0: Supercomputer Setup (CUDA Backprojection)
+To pass the learning gradients seamlessly from the Image Domain back into the Sinogram Domain, the network needs a mathematical layer that performs a Differentiable Radon Transform using the GPU (CUDA).
+
+If you are running this on a supercomputer or a high-end local GPU, you must install `torch-radon` (or a similar CUDA backend) into your PyTorch environment.
+
+1. Clone and install the `torch-radon` library in your AI virtual environment:
+   ```bash
+   # Make sure your deep learning virtual environment is active!
+   git clone https://github.com/matteo-pedone/Torch-Radon.git
+   cd Torch-Radon
+   python setup.py install
+   ```
+2. **Automatic Integration:** The `train_dual_domain.py` script is already programmed to detect this library! If it is installed, it will automatically activate the real mathematically correct CUDA layer. If it is not installed, it falls back to a dummy tensor (which is only useful for structural testing on a laptop, but will not train correctly).
 
 ### Phase 1: Generate the Synthetic Data (Physics Simulation)
 *You will use the isolated `venv` inside DATACREATION that has ASTRA correctly installed. This script has been super-charged to scan the `DATACREATION/STL/` folder and generate multiple variations for **every** CAD model it finds.*

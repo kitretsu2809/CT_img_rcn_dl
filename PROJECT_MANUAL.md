@@ -84,8 +84,8 @@ conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvi
 conda install -c astra-toolbox astra-toolbox -y
 
 # 4. Install Torch-Radon (the differentiable CUDA bridge for the AI in Phase 2)
-git clone https://github.com/matteo-pedone/Torch-Radon.git
-cd Torch-Radon
+git clone https://github.com/matteo-ronchetti/torch-radon.git
+cd torch-radon
 python setup.py install
 cd ..
 ```

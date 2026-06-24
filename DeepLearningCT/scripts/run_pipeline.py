@@ -112,7 +112,7 @@ def run_dual_domain_pipeline(sample_name: str, epochs: int = 50):
         dataset_path = REPO_ROOT / "outputs" / "dual_domain_dataset_all.npz"
         result = run_command(
             [sys.executable, str(SCRIPTS_DIR / "dual_domain" / "01_build_dataset.py"),
-             "--dataset-path", str(dataset_path),
+             "--output-path", str(dataset_path),
              "--sparse-step", "4"],
             "Building unified Dual-Domain dataset"
         )
@@ -137,7 +137,7 @@ def run_dual_domain_pipeline(sample_name: str, epochs: int = 50):
         result = run_command(
             [sys.executable, str(SCRIPTS_DIR / "dual_domain" / "01_build_dataset.py"),
              "--sample-dir", str(paths["sample_dir"]),
-             "--dataset-path", str(dataset_path),
+             "--output-path", str(dataset_path),
              "--sparse-step", "4"],
             "Building Dual-Domain dataset"
         )

@@ -22,6 +22,18 @@ def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_ti
     print("Loading geometry mesh...")
     mesh = trimesh.load_mesh(stl_filepath)
 
+    print("Auto-aligning mesh orientation...")
+    extents = mesh.extents
+    min_dim_idx = np.argmin(extents)
+    if min_dim_idx == 0:
+        print("  -> Shortest dimension is X. Rotating 90 degrees around Y to stand cylinder upright.")
+        mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi/2, [0, 1, 0]))
+    elif min_dim_idx == 1:
+        print("  -> Shortest dimension is Y. Rotating 90 degrees around X to stand cylinder upright.")
+        mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi/2, [1, 0, 0]))
+    else:
+        print("  -> Cylinder is already upright (shortest dimension is Z).")
+
     print(f"Voxelizing 3D geometry... (Super-sampling at pitch={supersample_pitch} for anti-aliasing)")
     # Voxelize at specified pitch.
     # With 400GB RAM, we can afford this massive intermediate matrix.
@@ -56,9 +68,15 @@ def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_ti
     vol_geom = astra.creators.create_vol_geom(y_dim, z_dim, x_dim)
 
     # Setup 3D Cone Beam Detector Geometry
-    # To mirror physical hardware, we simulate cone beam geometry
-    detector_cols = int(np.ceil(np.sqrt(x_dim**2 + y_dim**2))) + 20
-    detector_rows = z_dim 
+    # To mirror physical hardware and prevent "horizontal strip" aspect ratios,
+    # we simulate a perfectly square detector that covers the entire bounding box diagonally.
+    max_diagonal = int(np.ceil(np.sqrt(x_dim**2 + y_dim**2))) + 20
+    detector_size = max(max_diagonal, z_dim + 20)
+    if detector_size % 2 != 0:
+        detector_size += 1  # Ensure even number of pixels for symmetric center of rotation
+        
+    detector_cols = detector_size
+    detector_rows = detector_size 
     
     voxel_size_mm = supersample_pitch * downsample_factor
     sod_mm = 160.0

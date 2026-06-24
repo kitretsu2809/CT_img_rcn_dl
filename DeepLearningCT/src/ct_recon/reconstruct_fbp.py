@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tifffile
 
-from .data_loader import CTScanData, load_sample1
+from .data_loader import CTScanData, load_sample
 from .geometry import CTGeometry, geometry_for_projection_count, parse_geometry
 from .paths import OUTPUTS_DIR, SAMPLE_DIR, resolve_repo_path
 
@@ -218,7 +218,7 @@ def run_baseline_reconstruction(
     sample_dir = resolve_repo_path(sample_dir)
     output_dir = resolve_repo_path(output_dir)
 
-    data = load_sample1(sample_dir)
+    data = load_sample(sample_dir)
     geometry = parse_geometry(sample_dir / "settings.cto")
     geometry = geometry_for_projection_count(geometry, data.projections.shape[0])
     row_subset = default_row_subset(geometry, count=num_rows)

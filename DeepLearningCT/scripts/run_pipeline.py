@@ -21,10 +21,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = REPO_ROOT / "src"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
+sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(SRC_DIR))
-sys.path.insert(0, str(SCRIPTS_DIR / "common"))
 
-from sample_config import get_sample_paths, get_sample_config
+from scripts.common.sample_config import get_sample_paths, get_sample_config
 
 
 def run_command(cmd: list[str], description: str, check: bool = True) -> int:

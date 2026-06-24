@@ -1,5 +1,4 @@
 import os
-import zipfile
 import numpy as np
 import astra
 import trimesh
@@ -38,6 +37,8 @@ def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_ti
     # Voxelize at specified pitch.
     # With 400GB RAM, we can afford this massive intermediate matrix.
     voxel_obj = mesh.voxelized(pitch=supersample_pitch, max_iter=1000)
+    if voxel_obj is None:
+        raise RuntimeError("Voxelization failed to produce a volume.")
     voxels_high_res = voxel_obj.matrix.astype(np.float32)
     
     # Delete mesh to free RAM

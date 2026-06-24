@@ -72,7 +72,6 @@ def generate_datasets():
                 run_local_projection_pipeline(
                     stl_filepath=stl_path,
                     output_dir=dataset_out_dir,
-                    zip_filename=zip_out_name,
                     supersample_pitch=0.025,
                     downsample_factor=var["downsample"],
                     add_noise=var["add_noise"],

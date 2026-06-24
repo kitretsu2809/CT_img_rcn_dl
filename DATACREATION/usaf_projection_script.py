@@ -12,7 +12,7 @@ from skimage.measure import block_reduce
 # Set to False to output mathematically perfect anti-aliased projections.
 ADD_PHYSICS_NOISE = True
 
-def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_tiff", zip_filename="usaf_phantom_projections.zip", supersample_pitch=0.025, downsample_factor=2, add_noise=True, i0=50000.0, gaussian_std=10.0):
+def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_tiff", supersample_pitch=0.025, downsample_factor=2, add_noise=True, i0=50000.0, gaussian_std=10.0):
     # --- STEP 1: LOCATE YOUR AUTOCAD STL FILE ---
     if not os.path.exists(stl_filepath):
         raise FileNotFoundError(f"Error: Could not find '{stl_filepath}'. Please check the path.")
@@ -53,7 +53,7 @@ def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_ti
         voxels_high_res = np.pad(voxels_high_res, ((0, pad_x), (0, pad_y), (0, pad_z)), mode='constant')
         
     # Average-pool downsample to get greyscale partial-volume voxels (anti-aliasing)
-    voxels = block_reduce(voxels_high_res, block_size=(downsample_factor, downsample_factor, downsample_factor), func=np.mean)
+    voxels = block_reduce(voxels_high_res, block_size=downsample_factor, func=np.mean)
     
     del voxels_high_res
     gc.collect()
@@ -198,21 +198,21 @@ interpolate = FALSE
     
     print(f"settings.cto written to {cto_path}")
 
-    # --- STEP 6: ZIP THE COMPRESSED OUTPUT ---
-    print(f"Compressing frames into '{zip_filename}' in your current working directory...")
+    # # --- STEP 6: ZIP THE COMPRESSED OUTPUT ---
+    # print(f"Compressing frames into '{zip_filename}' in your current working directory...")
 
-    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files_list in os.walk(output_dir):
-            for file in files_list:
-                zipf.write(os.path.join(root, file), arcname=file)
+    # with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    #     for root, dirs, files_list in os.walk(output_dir):
+    #         for file in files_list:
+    #             zipf.write(os.path.join(root, file), arcname=file)
 
-    print(f"Process complete! Output saved locally as {zip_filename}")
+    # print(f"Process complete! Output saved locally as {zip_filename}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate synthetic CT projections from an STL phantom.")
     parser.add_argument("--stl", type=str, default="STL/FINAL30.stl", help="Path to the input STL file.")
     parser.add_argument("--output_dir", type=str, default="projection_slices_tiff", help="Directory to save output TIFF projections.")
-    parser.add_argument("--zip_name", type=str, default="usaf_phantom_projections.zip", help="Name of the output zip file.")
+    # parser.add_argument("--zip_name", type=str, default="usaf_phantom_projections.zip", help="Name of the output zip file.")
     parser.add_argument("--supersample", type=float, default=0.025, help="Pitch for supersampled voxelization.")
     parser.add_argument("--downsample", type=int, default=2, help="Block reduction factor for downsampling.")
     parser.add_argument("--no-noise", action="store_true", help="Disable physics noise injection.")
@@ -227,7 +227,7 @@ if __name__ == "__main__":
     run_local_projection_pipeline(
         stl_filepath=args.stl,
         output_dir=args.output_dir,
-        zip_filename=args.zip_name,
+        # zip_filename=args.zip_name,
         supersample_pitch=args.supersample,
         downsample_factor=args.downsample,
         add_noise=add_noise,

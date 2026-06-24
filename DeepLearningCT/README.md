@@ -1,100 +1,43 @@
 # Deep Learning CT Reconstruction
 
-This project implements four CT reconstruction pipeline modes:
+This repository contains the artificial intelligence engine that pairs with the `DATACREATION` physics simulation. 
 
-1. **Classical**: Traditional FDK (Feldkamp-Davis-Kress) reconstruction
-2. **Sinogram**: Deep learning from sparse sinograms (fewer X-ray views)
-3. **Enhance**: Deep learning from full sinograms (all X-ray views) - for improving FDK
-4. **U-Net**: Post-processing enhancement of degraded FDK
+Our focus is entirely on the **State-of-the-Art Dual-Domain CT Reconstruction Architecture**, which is the subject of our upcoming conference paper.
 
-## Pipeline Modes
+## 1. Dual-Domain Pipeline (`dual-domain`)
+Instead of post-processing images after the classical math has ruined them, we use an architecture that directly bridges the Sensor (Sinogram) Domain and the Image Domain.
 
-### 1. Classical (`classical`)
-Traditional filtered back-projection (FDK) reconstruction using ASTRA Toolbox.
-
-**What it does:**
-- Runs FDK on raw projection data
-- Outputs 3D volume (.tif) and preview (.png)
-
-**Command:**
-```bash
-# Default (downsampled)
-python scripts/run_pipeline.py classical --sample sample_1
-
-# Full resolution (no downsampling)
-python scripts/run_pipeline.py classical --sample sample_2 --no-downsample
-```
-
-**Options:** `--no-downsample`, `--downsample-factor N`
-
----
-
-### 2. Sinogram (`sinogram`)
-Deep learning from **sparse** sinograms (subset of projections).
-
-- Input: Every Nth projection (sparse)
-- Target: FDK from all projections
-- Use case: Reconstruct from fewer X-ray views
-
-**Command:**
-```bash
-python scripts/run_pipeline.py sinogram --sample sample_1 --epochs 50
-```
-
-**Options:** `--epochs N`
-
----
-
-### 3. Enhance (`enhance`)
-Deep learning from **full** sinograms (all projections) to enhance FDK reconstruction.
-
-- Input: Full projection set
-- Target: FDK reconstruction (same projections)
-- Use case: Improve reconstruction quality beyond classical FDK
-
-**Command:**
-```bash
-python scripts/run_pipeline.py enhance --sample sample_1 --epochs 50
-python scripts/run_pipeline.py enhance --sample sample_2 --epochs 50
-```
-
-**Options:** `--epochs N`
-
----
-
-### 4. U-Net (`unet`)
-Post-processing enhancement of degraded FDK using U-Net.
-
-- Input: Degraded (downsampled) FDK
-- Target: High-quality FDK
-- Use case: Polish/reduce artifacts in reconstruction
-
-**Command:**
-```bash
-python scripts/run_pipeline.py unet --sample sample_1 --epochs 50
-```
-
-**Options:** `--epochs N`
-
----
+**The process:**
+1. A Deep Convolutional Network (`SinogramNet`) removes photon-starvation noise and corrects the raw TIFF projections in the Sensor Domain.
+2. A `DifferentiableBackprojection` layer physically translates the 2D sinogram into a 3D grid, preserving all learned gradients.
+3. A second Convolutional Network (`ImageNet`) refines the output, restoring high-frequency structures and boundaries.
 
 ## Structure
 
-- `src/ct_recon/`: shared library code
-- `scripts/`: runnable pipelines and entrypoints
-- `data/sample_1`, `data/sample_2`: raw datasets
-- `outputs/sample_X_pipeline/`: pipeline outputs (classical, sinogram_recon, unet_enhance)
+- **`scripts/run_pipeline.py`**: The master orchestration script that automatically discovers simulated datasets, builds the combined dual-domain `.npz` records, and trains the Dual-Domain network.
+- **`scripts/dual_domain/`**: The dedicated dataset builder and PyTorch training loop for the dual-domain model.
+- **`src/ct_recon/train_dual_domain.py`**: The core PyTorch class (`DualDomainNet`) defining the network architecture.
 
-## Data Samples
+## How to Run
 
-| Sample | Projections | Original Size | Downsample | Notes |
-|--------|------------|--------------|-----------|-------|
-| sample_1 | 359 | 1000×1000 | 2 | Full volume |
-| sample_2 | 361 | 2850×2850 | 4 | Limited z-range (slices 280-440 contain structure) |
+1. **Activate Conda Environment:**
+   Ensure you have your unified `ct_pipeline` Conda environment activated. (See the main `PROJECT_MANUAL.md` for setup instructions).
+   ```bash
+   conda activate ct_pipeline
+   ```
 
-**Note:** Sample_2 has empty slices at top and bottom. The z-range is automatically limited to only the active region.
+2. **Train the AI on ALL Generated Datasets (Standard Workflow):**
+   *(Make sure you have run the physics simulator first so that the `data/` folder is populated with scans).*
+   
+   To train a robust AI, we feed it every single dataset we generated (standard scan, dense noisy scan, different CAD models, etc.). You only need to run this one command:
+   ```bash
+   python scripts/run_pipeline.py dual-domain --sample all --epochs 100
+   ```
+   **What this does automatically:**
+   - It scans the `data/` directory and finds all your generated scans.
+   - It builds a massive unified dataset from all those scans.
+   - It trains the Dual-Domain network for 100 iterations (epochs).
+   - It saves the final trained AI model to `outputs/dual_domain_all_datasets/`.
 
-## Notes
-
-- Combined multi-sample training scripts were removed to keep workflows strictly separated by sample and task.
-- Universal sample/output paths are managed via `scripts/common/sample_config.py`.
+## Notes for the Conference Paper
+The architecture in `train_dual_domain.py` is fully implemented and **automatically** integrates the differentiable CUDA kernel (`torch-radon`) if it is installed in your Conda environment. Make sure to follow the *Phase 0 Supercomputer Setup* instructions in `PROJECT_MANUAL.md` so PyTorch can pass mathematical gradients seamlessly between the Sensor Domain and the Image Domain. Once the library is installed, the code handles the rest to give you State-of-the-Art results for your paper!

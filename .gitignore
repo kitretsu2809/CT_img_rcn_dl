@@ -4,7 +4,8 @@ __pycache__/
 *$py.class
 venv/
 .env
-
+*.pdf
+Miniconda3-latest-Linux-x86_64.sh
 # Data and Outputs (Gigabytes of data!)
 data/
 outputs/

@@ -1,5 +1,4 @@
 import os
-import zipfile
 import numpy as np
 import astra
 import trimesh
@@ -12,7 +11,7 @@ from skimage.measure import block_reduce
 # Set to False to output mathematically perfect anti-aliased projections.
 ADD_PHYSICS_NOISE = True
 
-def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_tiff", zip_filename="usaf_phantom_projections.zip", supersample_pitch=0.025, downsample_factor=2, add_noise=True, i0=50000.0, gaussian_std=10.0):
+def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_tiff", supersample_pitch=0.025, downsample_factor=2, add_noise=True, i0=50000.0, gaussian_std=10.0):
     # --- STEP 1: LOCATE YOUR AUTOCAD STL FILE ---
     if not os.path.exists(stl_filepath):
         raise FileNotFoundError(f"Error: Could not find '{stl_filepath}'. Please check the path.")
@@ -22,10 +21,24 @@ def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_ti
     print("Loading geometry mesh...")
     mesh = trimesh.load_mesh(stl_filepath)
 
+    print("Auto-aligning mesh orientation...")
+    extents = mesh.extents
+    min_dim_idx = np.argmin(extents)
+    if min_dim_idx == 0:
+        print("  -> Shortest dimension is X. Rotating 90 degrees around Y to stand cylinder upright.")
+        mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi/2, [0, 1, 0]))
+    elif min_dim_idx == 1:
+        print("  -> Shortest dimension is Y. Rotating 90 degrees around X to stand cylinder upright.")
+        mesh.apply_transform(trimesh.transformations.rotation_matrix(np.pi/2, [1, 0, 0]))
+    else:
+        print("  -> Cylinder is already upright (shortest dimension is Z).")
+
     print(f"Voxelizing 3D geometry... (Super-sampling at pitch={supersample_pitch} for anti-aliasing)")
     # Voxelize at specified pitch.
     # With 400GB RAM, we can afford this massive intermediate matrix.
     voxel_obj = mesh.voxelized(pitch=supersample_pitch, max_iter=1000)
+    if voxel_obj is None:
+        raise RuntimeError("Voxelization failed to produce a volume.")
     voxels_high_res = voxel_obj.matrix.astype(np.float32)
     
     # Delete mesh to free RAM
@@ -41,7 +54,7 @@ def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_ti
         voxels_high_res = np.pad(voxels_high_res, ((0, pad_x), (0, pad_y), (0, pad_z)), mode='constant')
         
     # Average-pool downsample to get greyscale partial-volume voxels (anti-aliasing)
-    voxels = block_reduce(voxels_high_res, block_size=(downsample_factor, downsample_factor, downsample_factor), func=np.mean)
+    voxels = block_reduce(voxels_high_res, block_size=downsample_factor, func=np.mean)
     
     del voxels_high_res
     gc.collect()
@@ -56,9 +69,15 @@ def run_local_projection_pipeline(stl_filepath, output_dir="projection_slices_ti
     vol_geom = astra.creators.create_vol_geom(y_dim, z_dim, x_dim)
 
     # Setup 3D Cone Beam Detector Geometry
-    # To mirror physical hardware, we simulate cone beam geometry
-    detector_cols = int(np.ceil(np.sqrt(x_dim**2 + y_dim**2))) + 20
-    detector_rows = z_dim 
+    # To mirror physical hardware and prevent "horizontal strip" aspect ratios,
+    # we simulate a perfectly square detector that covers the entire bounding box diagonally.
+    max_diagonal = int(np.ceil(np.sqrt(x_dim**2 + y_dim**2))) + 20
+    detector_size = max(max_diagonal, z_dim + 20)
+    if detector_size % 2 != 0:
+        detector_size += 1  # Ensure even number of pixels for symmetric center of rotation
+        
+    detector_cols = detector_size
+    detector_rows = detector_size 
     
     voxel_size_mm = supersample_pitch * downsample_factor
     sod_mm = 160.0
@@ -180,21 +199,21 @@ interpolate = FALSE
     
     print(f"settings.cto written to {cto_path}")
 
-    # --- STEP 6: ZIP THE COMPRESSED OUTPUT ---
-    print(f"Compressing frames into '{zip_filename}' in your current working directory...")
+    # # --- STEP 6: ZIP THE COMPRESSED OUTPUT ---
+    # print(f"Compressing frames into '{zip_filename}' in your current working directory...")
 
-    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files_list in os.walk(output_dir):
-            for file in files_list:
-                zipf.write(os.path.join(root, file), arcname=file)
+    # with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    #     for root, dirs, files_list in os.walk(output_dir):
+    #         for file in files_list:
+    #             zipf.write(os.path.join(root, file), arcname=file)
 
-    print(f"Process complete! Output saved locally as {zip_filename}")
+    # print(f"Process complete! Output saved locally as {zip_filename}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate synthetic CT projections from an STL phantom.")
     parser.add_argument("--stl", type=str, default="STL/FINAL30.stl", help="Path to the input STL file.")
     parser.add_argument("--output_dir", type=str, default="projection_slices_tiff", help="Directory to save output TIFF projections.")
-    parser.add_argument("--zip_name", type=str, default="usaf_phantom_projections.zip", help="Name of the output zip file.")
+    # parser.add_argument("--zip_name", type=str, default="usaf_phantom_projections.zip", help="Name of the output zip file.")
     parser.add_argument("--supersample", type=float, default=0.025, help="Pitch for supersampled voxelization.")
     parser.add_argument("--downsample", type=int, default=2, help="Block reduction factor for downsampling.")
     parser.add_argument("--no-noise", action="store_true", help="Disable physics noise injection.")
@@ -209,7 +228,7 @@ if __name__ == "__main__":
     run_local_projection_pipeline(
         stl_filepath=args.stl,
         output_dir=args.output_dir,
-        zip_filename=args.zip_name,
+        # zip_filename=args.zip_name,
         supersample_pitch=args.supersample,
         downsample_factor=args.downsample,
         add_noise=add_noise,

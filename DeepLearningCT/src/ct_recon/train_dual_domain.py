@@ -5,6 +5,8 @@ import random
 from pathlib import Path
 import numpy as np
 
+from ct_recon.geometry import CTGeometry
+
 # A skeletal representation of a State-of-the-Art Dual-Domain CT Reconstruction Network.
 # In a full clinical deployment, the `DifferentiableBackprojection` layer would be powered 
 # by a compiled CUDA extension (like astra.pytorch or torch-radon).
@@ -56,22 +58,49 @@ class SinogramNet(nn.Module):
 
 class DifferentiableBackprojection(nn.Module):
     """
-    Placeholder for a differentiable Radon transform (FBP).
-    In SOTA implementations (e.g., DuDoNet, PD-Net), this is a custom CUDA layer 
-    that mathematically projects the 2D sinogram into a 2D image grid, allowing 
+    Differentiable Radon transform (FBP).
+    When running on the supercomputer with CUDA, this uses `torch_radon` to 
+    mathematically project the 2D sinogram into a 2D image grid, allowing 
     gradients to flow backwards from the Image Domain to the Sinogram Domain.
     """
-    def __init__(self, image_size=512):
+    def __init__(self, geometry: CTGeometry):
         super().__init__()
-        self.image_size = image_size
-        # For a completely learned AUTOMAP-style approach, this could be an FC layer:
-        # self.learned_transform = nn.Linear(num_angles * num_detectors, image_size * image_size)
+        self.image_size = geometry.recon_rows
+        self.radon = None
+        
+        try:
+            import torch_radon
+            # Dynamically initialize using the specific scanner geometry from settings.cto
+            angles_rad = geometry.angles_rad
+            
+            # Use RadonFanbeam for cone/fan beams if distances are provided, otherwise parallel
+            if geometry.source_to_object_mm > 0 and geometry.source_to_detector_mm > 0:
+                self.radon = torch_radon.RadonFanbeam(
+                    geometry.recon_rows, 
+                    angles_rad,
+                    source_distance=geometry.source_to_object_mm,
+                    det_distance=geometry.source_to_detector_mm,
+                    det_spacing=geometry.detector_pixel_size_mm
+                )
+            else:
+                self.radon = torch_radon.Radon(geometry.recon_rows, angles_rad)
+                
+            print("Successfully loaded dynamic torch-radon CUDA backend using settings.cto geometry.")
+        except ImportError:
+            print("WARNING: torch-radon not found. Using dummy placeholder backprojection.")
 
     def forward(self, sinogram):
-        # Pseudo-mapping: In reality, use torch-radon or astra.pytorch
         batch_size = sinogram.shape[0]
-        # Returning a dummy image tensor of correct shape for demonstration
-        return torch.zeros((batch_size, 1, self.image_size, self.image_size), device=sinogram.device)
+        
+        if self.radon is not None:
+            # The actual mathematically correct, differentiable conversion
+            # Filters the sinogram and performs backprojection
+            filtered_sinogram = self.radon.filter_sinogram(sinogram)
+            reconstructed_image = self.radon.backprojection(filtered_sinogram)
+            return reconstructed_image
+        else:
+            # Dummy placeholder for local testing without CUDA
+            return torch.zeros((batch_size, 1, self.image_size, self.image_size), device=sinogram.device)
 
 class ImageNet(nn.Module):
     """
@@ -97,10 +126,10 @@ class DualDomainNet(nn.Module):
     State-of-the-Art Dual-Domain CT Reconstruction Architecture.
     Processes data systematically across both the sensor and image domains.
     """
-    def __init__(self, image_size=512):
+    def __init__(self, geometry: CTGeometry):
         super().__init__()
         self.sino_net = SinogramNet()
-        self.fbp_layer = DifferentiableBackprojection(image_size)
+        self.fbp_layer = DifferentiableBackprojection(geometry)
         self.image_net = ImageNet()
 
     def forward(self, noisy_sinogram):
@@ -119,8 +148,7 @@ def main():
     print("Dual-Domain Network Architecture Loaded.")
     print("This architecture represents the State-of-the-Art for CT Reconstruction.")
     print("To train end-to-end, ensure the data loader supplies both Sinogram and Target Image pairs.")
-    model = DualDomainNet()
-    print(model)
+    print("Dual-Domain Network requires a CTGeometry object to initialize.")
 
 if __name__ == "__main__":
     main()

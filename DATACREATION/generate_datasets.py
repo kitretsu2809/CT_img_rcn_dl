@@ -29,7 +29,7 @@ def generate_datasets():
             "downsample": 2
         },
         {
-            "suffix": "low_dose_high_noise",
+            "suffix": "fast_scan_high_noise",
             "add_noise": True,
             "i0": 10000.0,
             "gaussian_std": 20.0,

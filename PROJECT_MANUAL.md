@@ -104,7 +104,7 @@ python generate_datasets.py
 ```
 *What happens:* The script will find all 3D objects. For each object, it will generate 4 unique physical simulations:
 - `standard` (Normal noise, 50-micron resolution)
-- `low_dose_high_noise` (Simulates photon-starvation with intense Gaussian noise)
+- `fast_scan_high_noise` (Simulates rapid scan constraints with intense Gaussian noise)
 - `perfect_no_noise` (Mathematically perfect reference scan)
 - `downsample_4x` (100-micron resolution scan)
 
@@ -113,7 +113,7 @@ These will all be saved as separate, fully packaged folders inside `/home/kitret
 ### Phase 2: Train the Dual-Domain Model (Standard Workflow)
 *Once the `data/` folder is packed with variations, you can train the Dual-Domain Network on ALL generated datasets simultaneously.*
 
-To train a robust AI, we feed it every single dataset we generated (normal dose, low dose, different CAD models, etc.). You only need to run this one command:
+To train a robust AI, we feed it every single dataset we generated (standard scan, fast scan, different CAD models, etc.). You only need to run this one command:
 
 ```bash
 # 1. Navigate to the AI directory

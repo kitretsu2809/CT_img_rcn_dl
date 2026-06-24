@@ -60,3 +60,8 @@ Load the Classical FDK TIFF and your new Deep Learning TIFF into a viewer like *
 Place them side-by-side:
 - **Image A (Classical FDK):** Show how low-dose data produces massive streak artifacts and blurring.
 - **Image B (Your Dual-Domain AI):** Show how your AI mathematically bridges the sensor/image domains to eliminate streaks and restore fine details!
+
+
+## TIP : generating settings.cto file from .ctdata etc files
+
+- python DeepLearningCT/scripts/nikon_converter/convert_nikon_to_cto.py path/to/your/scan.xtekct --output-dir path/to/save/folder

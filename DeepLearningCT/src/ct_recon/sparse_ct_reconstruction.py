@@ -36,6 +36,7 @@ class SparseSinogramDatasetMetadata:
     image_min: float
     image_max: float
     target_volume_path: str
+    settings_path: str
 
 
 def resize_2d_array(image: np.ndarray, output_shape: tuple[int, int]) -> np.ndarray:

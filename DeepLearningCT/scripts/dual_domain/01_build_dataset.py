@@ -126,6 +126,7 @@ def main():
         image_min=float(image_min),
         image_max=float(image_max),
         target_volume_path=str(target_volume_path),
+        settings_path=str(sample_dir / "settings.cto"),
     )
 
     np.savez_compressed(

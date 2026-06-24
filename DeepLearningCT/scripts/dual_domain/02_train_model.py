@@ -14,6 +14,7 @@ if str(SRC_DIR) not in sys.path:
 
 from ct_recon.paths import OUTPUTS_DIR, resolve_repo_path
 from ct_recon.sparse_ct_reconstruction import _import_torch_or_exit, load_sparse_dataset, psnr_np, save_history
+from ct_recon.geometry import parse_geometry
 from ct_recon.train_dual_domain import DualDomainNet
 
 def split_indices(count: int, val_fraction: float, seed: int) -> tuple[list[int], list[int]]:
@@ -41,10 +42,22 @@ def main():
             return len(self.indices)
 
         def __getitem__(self, index):
+            import torch.nn.functional as F
+            
             sample_idx = self.indices[index]
             noisy_sinogram = torch.from_numpy(self.input_sinograms[sample_idx][None, :, :])
             target_sinogram = torch.from_numpy(self.target_sinograms[sample_idx][None, :, :])
             target_image = torch.from_numpy(self.target_images[sample_idx][None, :, :])
+            
+            # Interpolate the sparse sinogram to the dense shape so the network can repair it
+            if noisy_sinogram.shape != target_sinogram.shape:
+                noisy_sinogram = F.interpolate(
+                    noisy_sinogram.unsqueeze(0), 
+                    size=target_sinogram.shape[1:], 
+                    mode='bilinear', 
+                    align_corners=False
+                ).squeeze(0)
+                
             return noisy_sinogram, target_sinogram, target_image
 
     parser = argparse.ArgumentParser(description="Train the SOTA Dual-Domain Reconstructor.")
@@ -71,7 +84,9 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = DualDomainNet(image_size=metadata.image_size).to(device)
+    
+    geometry = parse_geometry(metadata.settings_path)
+    model = DualDomainNet(geometry=geometry).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
     l1_loss = nn.L1Loss()
 

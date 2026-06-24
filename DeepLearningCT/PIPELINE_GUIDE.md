@@ -30,8 +30,8 @@ python scripts/run_pipeline.py dual-domain --sample all --epochs 50
 
 **What this does under the hood:**
 1. **Classical Baseline:** Runs standard FDK math on the dense projections to create perfect, high-quality 3D volumes. These act as the "ground truth" targets for the AI.
-2. **Dataset Building (`01_build_dataset.py`):** Artificially throws away a majority of the projections to simulate a "fast, accelerated scan" necessary for high-throughput space equipment inspection. Packages these sparse sinograms alongside the high-quality target images into a `.npz` file, and securely attaches the `settings.cto` geometry.
-3. **Training (`02_train_model.py`):** The PyTorch network boots up. It reads the `settings.cto` file to dynamically configure the `torch-radon` physics layer. The AI looks at the sparse (noisy) sinogram, tries to reconstruct it, compares it to the high-quality FDK target, and updates its weights. It saves the best model as `best_model.pt`.
+2. **Dataset Building (`01_build_dataset.py`):** Prepares the full dense sinograms (including all angles) to learn physical artifact removal for high-throughput space equipment inspection. Packages these dense sinograms alongside the high-quality mathematically perfect target images into a `.npz` file, and securely attaches the `settings.cto` geometry. Option to use `--sparse-step` if accelerated scans are desired.
+3. **Training (`02_train_model.py`):** The PyTorch network boots up. It reads the `settings.cto` file to dynamically configure the `torch-radon` physics layer. The AI looks at the dense (noisy/artifact-laden) sinogram, tries to reconstruct it, compares it to the high-quality reference target, and updates its weights. It saves the best model as `best_model.pt`.
 
 ---
 
@@ -48,7 +48,7 @@ python scripts/dual_domain/03_inference.py \
     --checkpoint outputs/dual_domain_all_datasets/best_model.pt \
     --output-file results_for_paper/deep_learning_reconstruction.tif
 ```
-*What this does: It boots up the physics math for that specific `test_sample` geometry, pushes the sparse projections through the trained model, and outputs a beautifully reconstructed 3D TIFF volume.*
+*What this does: It boots up the physics math for that specific `test_sample` geometry, pushes the dense projections through the trained model for artifact reduction, and outputs a beautifully reconstructed 3D TIFF volume.*
 
 ---
 
@@ -58,7 +58,7 @@ For your paper, reviewers expect visual comparisons.
 Load the Classical FDK TIFF and your new Deep Learning TIFF into a viewer like **ImageJ/Fiji** or Python's `matplotlib`. 
 
 Place them side-by-side:
-- **Image A (Classical FDK):** Show how accelerated sparse-view data produces massive streak artifacts and blurring.
+- **Image A (Classical FDK):** Show how dense data with physical sensor noise or beam hardening produces artifacts and blurring.
 - **Image B (Your Dual-Domain AI):** Show how your AI mathematically bridges the sensor/image domains to eliminate streaks and restore fine details!
 
 

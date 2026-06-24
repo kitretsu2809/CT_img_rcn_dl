@@ -37,7 +37,7 @@ The codebase is divided into two primary domains:
 The generation pipeline takes `.stl` CAD models and turns them into thousands of projection images mimicking a real X-ray scanner.
 
 ### The Automation Engine (Recommended)
-We provide an automated batch-generation script that iterates through different physical variations (e.g., standard scan, fast scan with high noise, perfect baseline, and different downsampling factors). 
+We provide an automated batch-generation script that iterates through different physical variations (e.g., standard scan, dense scan with high noise, perfect baseline, and different downsampling factors). 
 
 1. Drop your `.stl` files into `DATACREATION/STL/`
 2. Run the generator:
@@ -76,7 +76,7 @@ The central orchestrator is `scripts/run_pipeline.py`. It can manage dataset bui
 ```bash
 cd DeepLearningCT
 python scripts/run_pipeline.py unet \
-    --sample FINAL30_fast_scan_high_noise \
+    --sample FINAL30_dense_high_noise \
     --epochs 100 \
     --batch-size 8
 ```

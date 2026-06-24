@@ -29,7 +29,7 @@ Instead of post-processing images after the classical math has ruined them, we u
 2. **Train the AI on ALL Generated Datasets (Standard Workflow):**
    *(Make sure you have run the physics simulator first so that the `data/` folder is populated with scans).*
    
-   To train a robust AI, we feed it every single dataset we generated (standard scan, fast scan, different CAD models, etc.). You only need to run this one command:
+   To train a robust AI, we feed it every single dataset we generated (standard scan, dense noisy scan, different CAD models, etc.). You only need to run this one command:
    ```bash
    python scripts/run_pipeline.py dual-domain --sample all --epochs 100
    ```

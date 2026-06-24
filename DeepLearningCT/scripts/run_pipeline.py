@@ -91,7 +91,7 @@ def run_classical(sample_name: str, skip_if_exists: bool = True, no_downsample: 
     return 0
 
 
-def run_dual_domain_pipeline(sample_name: str, epochs: int = 50):
+def run_dual_domain_pipeline(sample_name: str, epochs: int = 50, sparse_step: int = 1):
     """Run SOTA Dual-Domain Enhancement pipeline."""
     data_dir = REPO_ROOT / "data"
     
@@ -113,8 +113,8 @@ def run_dual_domain_pipeline(sample_name: str, epochs: int = 50):
         result = run_command(
             [sys.executable, str(SCRIPTS_DIR / "dual_domain" / "01_build_dataset.py"),
              "--output-path", str(dataset_path),
-             "--sparse-step", "4"],
-            "Building unified Dual-Domain dataset"
+             "--sparse-step", str(sparse_step)],
+            f"Building unified Dual-Domain dataset (sparse-step={sparse_step})"
         )
         if result != 0:
             return result
@@ -138,8 +138,8 @@ def run_dual_domain_pipeline(sample_name: str, epochs: int = 50):
             [sys.executable, str(SCRIPTS_DIR / "dual_domain" / "01_build_dataset.py"),
              "--sample-dir", str(paths["sample_dir"]),
              "--output-path", str(dataset_path),
-             "--sparse-step", "4"],
-            "Building Dual-Domain dataset"
+             "--sparse-step", str(sparse_step)],
+            f"Building Dual-Domain dataset (sparse-step={sparse_step})"
         )
         if result != 0:
             return result
@@ -174,6 +174,7 @@ def main():
     parser.add_argument("mode", choices=["dual-domain", "classical"], help="Pipeline mode to run")
     parser.add_argument("--sample", default="sample_1", help="Sample directory name (or 'all' for multi-dataset training)")
     parser.add_argument("--epochs", type=int, default=50, help="Number of training epochs")
+    parser.add_argument("--sparse-step", type=int, default=1, help="Downsample factor for projections. 1 = All data (Artifact Reduction), >1 = Sparse View.")
     
     args = parser.parse_args()
     
@@ -186,7 +187,7 @@ def main():
         else:
             run_classical(args.sample)
     elif args.mode == "dual-domain":
-        run_dual_domain_pipeline(args.sample, args.epochs)
+        run_dual_domain_pipeline(args.sample, args.epochs, args.sparse_step)
     else:
         print(f"Unknown mode: {args.mode}")
         sys.exit(1)
